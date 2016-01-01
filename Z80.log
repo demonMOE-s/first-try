@@ -1,3 +1,23 @@
+/*
+** Z80 CPU Emu 
+** Copyright (C) 2015 xuanqi liang
+**
+** This program is free software; you can redistribute it and/or modify
+** it under the terms of the GNU General Public License as published by
+** the Free Software Foundation; either version 2 of the License, or
+** (at your option) any later version.
+**
+** This program is distributed in the hope that it will be useful, 
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU 
+** Library General Public License for more details.  To obtain a 
+** copy of the GNU Library General Public License, write to the Free 
+** Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+**
+** Any permitted reproduction of these routines, in whole or in part,
+** must bear this legend.
+*/
+
 #ifndef __MAIN_INSTRUCTION_H
 #define __MAIN_INSTRUCTION_H 
 
@@ -289,7 +309,153 @@
 #define CMP_I8			0xFE // FE   A !? imm8  			-  7 cycles
 #define RST_38H			0xFF // FF 		       push PC, =56 - 11 cycles
 
+static const byte Cycles[256] =
+{
+/*+-- 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F --+*/
+/*0*/ 4,10, 7, 6, 4, 4, 7, 4, 4,11, 7, 6, 4, 4, 7, 4,/*0*/
+/*1*/ 8,10, 7, 6, 4, 4, 7, 4,12,11, 7, 6, 4, 4, 7, 4,/*1*/
+/*2*/ 7,10,16, 6, 4, 4, 7, 4, 7,11,16, 6, 4, 4, 7, 4,/*2*/
+/*3*/ 7,10,13, 6,11,11,10, 4, 7,11,13, 6, 4, 4, 7, 4,/*3*/
+/*4*/ 4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,/*4*/
+/*5*/ 4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,/*5*/
+/*6*/ 4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,/*6*/
+/*7*/ 7, 7, 7, 7, 7, 7, 4, 7, 4, 4, 4, 4, 4, 4, 7, 4,/*7*/
+/*8*/ 4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,/*8*/
+/*9*/ 4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,/*9*/
+/*A*/ 4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,/*A*/
+/*B*/ 4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,/*B*/
+/*C*/ 5,10,10,10,10,11, 7,11, 5,10,10, 0,10,17, 7,11,/*C*/
+/*D*/ 5,10,10,11,10,11, 7,11, 5, 4,10,11,10, 0, 7,11,/*D*/
+/*E*/ 5,10,10,19,10,11, 7,11, 5, 4,10, 4,10, 0, 7,11,/*E*/
+/*F*/ 5,10,10, 4,10,11, 7,11, 5, 6,10, 4,10, 0, 7,11 /*F*/
+/*+-- 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F --+*/
+};
 
+static const byte CyclesCB[256] =
+{
+   8, 8, 8, 8, 8, 8,15, 8, 8, 8, 8, 8, 8, 8,15, 8,
+   8, 8, 8, 8, 8, 8,15, 8, 8, 8, 8, 8, 8, 8,15, 8,
+   8, 8, 8, 8, 8, 8,15, 8, 8, 8, 8, 8, 8, 8,15, 8,
+   8, 8, 8, 8, 8, 8,15, 8, 8, 8, 8, 8, 8, 8,15, 8,
+   8, 8, 8, 8, 8, 8,12, 8, 8, 8, 8, 8, 8, 8,12, 8,
+   8, 8, 8, 8, 8, 8,12, 8, 8, 8, 8, 8, 8, 8,12, 8,
+   8, 8, 8, 8, 8, 8,12, 8, 8, 8, 8, 8, 8, 8,12, 8,
+   8, 8, 8, 8, 8, 8,12, 8, 8, 8, 8, 8, 8, 8,12, 8,
+   8, 8, 8, 8, 8, 8,15, 8, 8, 8, 8, 8, 8, 8,15, 8,
+   8, 8, 8, 8, 8, 8,15, 8, 8, 8, 8, 8, 8, 8,15, 8,
+   8, 8, 8, 8, 8, 8,15, 8, 8, 8, 8, 8, 8, 8,15, 8,
+   8, 8, 8, 8, 8, 8,15, 8, 8, 8, 8, 8, 8, 8,15, 8,
+   8, 8, 8, 8, 8, 8,15, 8, 8, 8, 8, 8, 8, 8,15, 8,
+   8, 8, 8, 8, 8, 8,15, 8, 8, 8, 8, 8, 8, 8,15, 8,
+   8, 8, 8, 8, 8, 8,15, 8, 8, 8, 8, 8, 8, 8,15, 8,
+   8, 8, 8, 8, 8, 8,15, 8, 8, 8, 8, 8, 8, 8,15, 8 
+};
+
+static const byte CyclesED[256] =
+{
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  12,12,15,20, 8,14, 8, 9,12,12,15,20, 0,14, 0, 9,
+  12,12,15,20, 0, 0, 8, 9,12,12,15,20, 0, 0, 8, 9,
+  12,12,15,20, 0, 0, 0,18,12,12,15,20, 0, 0, 0,18,
+  12, 0,15,20, 0, 0, 0, 0,12,12,15,20, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  16,16,16,16, 0, 0, 0, 0,16,16,16,16, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
+static const byte CyclesXX[256] =
+{
+   0, 0, 0, 0, 0, 0, 0, 0, 0,15, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0,15, 0, 0, 0, 0, 0, 0,
+   0,14,20,10, 9, 9, 9, 0, 0,15,20,10, 9, 9, 9, 0,
+   0, 0, 0, 0,23,23,19, 0, 0,15, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 9, 9,19, 0, 0, 0, 0, 0, 9, 9,19, 0,
+   0, 0, 0, 0, 9, 9,19, 0, 0, 0, 0, 0, 9, 9,19, 0,
+   9, 9, 9, 9, 9, 9,19, 9, 9, 9, 9, 9, 9, 9,19, 9,
+  19,19,19,19,19,19,19,19, 0, 0, 0, 0, 9, 9,19, 0,
+   0, 0, 0, 0, 9, 9,19, 0, 0, 0, 0, 0, 9, 9,19, 0,
+   0, 0, 0, 0, 9, 9,19, 0, 0, 0, 0, 0, 9, 9,19, 0,
+   0, 0, 0, 0, 9, 9,19, 0, 0, 0, 0, 0, 9, 9,19, 0,
+   0, 0, 0, 0, 9, 9,19, 0, 0, 0, 0, 0, 9, 9,19, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+   0,14, 0,23, 0,15, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0,
+   0, 0, 0, 0, 0, 0, 0, 0, 0,10, 0, 0, 0, 0, 0, 0
+};
+
+static const byte CyclesXXCB[256] =
+{
+   0, 0, 0, 0, 0, 0,23, 0, 0, 0, 0, 0, 0, 0,23, 0,
+   0, 0, 0, 0, 0, 0,23, 0, 0, 0, 0, 0, 0, 0,23, 0,
+   0, 0, 0, 0, 0, 0,23, 0, 0, 0, 0, 0, 0, 0,23, 0,
+   0, 0, 0, 0, 0, 0,23, 0, 0, 0, 0, 0, 0, 0,23, 0,
+  20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,
+  20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,
+  20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,
+  20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,
+   0, 0, 0, 0, 0, 0,23, 0, 0, 0, 0, 0, 0, 0,23, 0,
+   0, 0, 0, 0, 0, 0,23, 0, 0, 0, 0, 0, 0, 0,23, 0,
+   0, 0, 0, 0, 0, 0,23, 0, 0, 0, 0, 0, 0, 0,23, 0,
+   0, 0, 0, 0, 0, 0,23, 0, 0, 0, 0, 0, 0, 0,23, 0,
+   0, 0, 0, 0, 0, 0,23, 0, 0, 0, 0, 0, 0, 0,23, 0,
+   0, 0, 0, 0, 0, 0,23, 0, 0, 0, 0, 0, 0, 0,23, 0,
+   0, 0, 0, 0, 0, 0,23, 0, 0, 0, 0, 0, 0, 0,23, 0,
+   0, 0, 0, 0, 0, 0,23, 0, 0, 0, 0, 0, 0, 0,23, 0
+};
+
+EmuS32 RunStepZ80 (struct *CPUs, EmuS32 Dispatch_Cycles) {
+	
+	
+	switch (Opcode) {
+		
+	case NOP: break; // 00 NOP nonthing to do ... 
+	case I16_TO_BC:   I16_TO_REG (BC); break; // 01 ld bc, nn 
+	case  A_TO_$BC: REG_TO_$REGB (BC, A); break; // 02 ld (bc), a 
+	case    INC_BC: 	 RMC_INC (BC); break; // 03 ++BC
+	case 	INC_B:		 RMC_INCFB(B); break; // 04 ++B 
+	case 	DEC_B:		 RMC_DECFB(B); break; // 05 --B 
+	case  I8_TO_B:	   I8_TO_REG (B); break; // 06 ld b, n 
+	case 	 RLCA:		 	X86_ROL_A;break; // 07 left move, head into tail 
+	case SWP_AF_MIR:	SWP_AF_TPC; break; // 08 swap AF's mirror and AF
+	case ADD_HL_BC:		 REG_ADDW(HL, BC); break; // 09 HL += BC 
+	case $BC_TO_A:	  $16_TO_REGB(BC, A); break; // 0A ld a, (bc)
+	case 	DEC_BC:		 RMC_DEC (BC); break; // 0B --BC 
+	case 	INC_C:		RMC_INCFB(C); break; // 0C ++C 
+	case 	DEC_C:		RMC_DECFB(C); break; // 0D --C 
+	case  I8_TO_C:		I8_TO_REG(C); break; // 0E ld c, n 
+	case 	 RRCA:			X86_ROR_A;break; // 0F right move, tail into head 
+	case 	 DJNZ:		DECB_JR_NZ; break; // 10 --BC != 0 -> sjmp 
+	case I16_TO_DE:	  I16_TO_REG (DE); break; // 11 ld de, nn 
+	case  A_TO_$DE: REG_TO_$REGB (DE, A); break; // 12 ld (de), a
+	case    INC_DE:		 RMC_INC (DE); break; // 13 ++DE 
+	case 	INC_D:		 RMC_INCFB(D); break; // 14 ++D
+	case 	DEC_D:		 RMC_DECFB(D); break; // 15 --D
+	case  I8_TO_D:	   I8_TO_REG (D); break; // 16 ld d, n 
+	case 	  RLA:		MOS6502_ROL_A;break; // 17 left move, head into tail 
+	case 	   JR:		 	SHORT_JMP;break; // 18 sjmp 
+	case ADD_HL_DE:		 REG_ADDW(HL, DE); break; // 19 HL += DE
+	case $DE_TO_A:	  $16_TO_REGB(DE, A); break; // 1A ld a, (de)
+	case 	DEC_DE:		 RMC_DEC (DE); break; // 1B --DE 
+	case 	INC_E:		 RMC_INCFB(E); break; // 1C ++E 
+	case 	DEC_E:		 RMC_DECFB(E); break; // 1D --E 
+	case  I8_TO_E:	   I8_TO_REG (E); break; // 1E ld e, n 
+	case 	  RRA:		MOS6502_ROR_A;break; // 1F right move, tail into head
+	case 	JR_NZ:		
+	
+	
+	
+	
+	}
+	
+}
 
 
 
