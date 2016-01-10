@@ -1,385 +1,330 @@
-/** Z80: portable Z80 emulator *******************************/
-/**                                                         **/
-/**                          Codes.h                        **/
-/**                                                         **/
-/** This file contains implementation for the main table of **/
-/** Z80 commands. It is included from Z80.c.                **/
-/**                                                         **/
-/** Copyright (C) Marat Fayzullin 1994-2007                 **/
-/**     You are not allowed to distribute this software     **/
-/**     commercially. Please, notify me, if you make any    **/
-/**     changes to this file.                               **/
-/*************************************************************/
+/*
+** Z80 CPU Emu 
+** Copyright (C) 2015 xuanqi liang
+**
+** This program is free software; you can redistribute it and/or modify
+** it under the terms of the GNU General Public License as published by
+** the Free Software Foundation; either version 2 of the License, or
+** (at your option) any later version.
+**
+** This program is distributed in the hope that it will be useful, 
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU 
+** Library General Public License for more details.  To obtain a 
+** copy of the GNU Library General Public License, write to the Free 
+** Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+**
+** Any permitted reproduction of these routines, in whole or in part,
+** must bear this legend.
+*/
 
-case JR_NZ:   if(R->AF.B.l&Z_FLAG) R->PC.W++; else { R->ICount-=5;M_JR; } break;
-case JR_NC:   if(R->AF.B.l&C_FLAG) R->PC.W++; else { R->ICount-=5;M_JR; } break;
-case JR_Z:    if(R->AF.B.l&Z_FLAG) { R->ICount-=5;M_JR; } else R->PC.W++; break;
-case JR_C:    if(R->AF.B.l&C_FLAG) { R->ICount-=5;M_JR; } else R->PC.W++; break;
+#ifndef __CPU_ACTION_H
+#define __CPU_ACTION_H
 
-case JP_NZ:   if(R->AF.B.l&Z_FLAG) R->PC.W+=2; else { M_JP; } break;
-case JP_NC:   if(R->AF.B.l&C_FLAG) R->PC.W+=2; else { M_JP; } break;
-case JP_PO:   if(R->AF.B.l&P_FLAG) R->PC.W+=2; else { M_JP; } break;
-case JP_P:    if(R->AF.B.l&S_FLAG) R->PC.W+=2; else { M_JP; } break;
-case JP_Z:    if(R->AF.B.l&Z_FLAG) { M_JP; } else R->PC.W+=2; break;
-case JP_C:    if(R->AF.B.l&C_FLAG) { M_JP; } else R->PC.W+=2; break;
-case JP_PE:   if(R->AF.B.l&P_FLAG) { M_JP; } else R->PC.W+=2; break;
-case JP_M:    if(R->AF.B.l&S_FLAG) { M_JP; } else R->PC.W+=2; break;
+#define S_FLAG      0x80       /* 1: Result negative         */
+#define Z_FLAG      0x40       /* 1: Result is zero          */
+#define H_FLAG      0x10       /* 1: Halfcarry/Halfborrow    */
+#define P_FLAG      0x04       /* 1: Result is even          */
+#define V_FLAG      0x04       /* 1: Overflow occured        */
+#define N_FLAG      0x02       /* 1: Subtraction occured     */
+#define C_FLAG      0x01       /* 1: Carry/Borrow occured    */
 
-case RET_NZ:  if(!(R->AF.B.l&Z_FLAG)) { R->ICount-=6;M_RET; } break;
-case RET_NC:  if(!(R->AF.B.l&C_FLAG)) { R->ICount-=6;M_RET; } break;
-case RET_PO:  if(!(R->AF.B.l&P_FLAG)) { R->ICount-=6;M_RET; } break;
-case RET_P:   if(!(R->AF.B.l&S_FLAG)) { R->ICount-=6;M_RET; } break;
-case RET_Z:   if(R->AF.B.l&Z_FLAG)    { R->ICount-=6;M_RET; } break;
-case RET_C:   if(R->AF.B.l&C_FLAG)    { R->ICount-=6;M_RET; } break;
-case RET_PE:  if(R->AF.B.l&P_FLAG)    { R->ICount-=6;M_RET; } break;
-case RET_M:   if(R->AF.B.l&S_FLAG)    { R->ICount-=6;M_RET; } break;
+/*\ --------------------------------- Mem/Reg Read/Write ---------------------------------------- \*/
+#define I08_TO_RB(x)    CPUs->x  = Z80_RB (CPUs->PC++)          /* regByte = imm08 */
+#define I16_TO_RW(x)    CPUs->TL = Z80_RB (CPUs->PC++);         /* regWord = imm16 */               \
+                        CPUs->TH = Z80_RB (CPUs->PC++);                                             \
+                        CPUs->x  =         CPUs->TP  
+#define RB_TO_xI16(x)   CPUs->AL = Z80_RB (CPUs->PC++);         /* (imm16) = regByte */             \
+                        CPUs->AH = Z80_RB (CPUs->PC++);                                             \
+                                   Z80_WR (CPUs->AP++, CPUs->x )                       
+#define RW_TO_xI16(x)   CPUs->TP =         CPUs->x;             /* (imm16) = regWord */             \
+        RB_TO_xI16(TL);                                                                             \
+                                   Z80_WR (CPUs->AP,   CPUs->TH)
+#define xI16_TO_RB(x)   CPUs->AL = Z80_RB (CPUs->PC++);         /* regByte = (imm16) */             \
+                        CPUs->AH = Z80_RB (CPUs->PC++);                                             \
+                        CPUs->x  = Z80_RB (CPUs->AP++)                      
+#define xI16_TO_RW(x)                                           /* regWord = (imm16) */             \
+        xI16_TO_RB(TL);                                                                             \
+                        CPUs->TH = Z80_RB (CPUs->AP);                                               \
+                        CPUs->x  =         CPUs->TP                     
+#define I08_TO_xRW(x)   CPUs->IL = Z80_RB (CPUs->PC++);         /* (regWord) = imm08 */             \
+                        CPUs->AP =         CPUs->x;                                                 \
+                                   Z80_WR (CPUs->AP++ ,                                             \
+                                           CPUs->IL                                                 \
+                                )       
+#define I16_TO_xRW(x)   CPUs->TP =         CPUs->x;             /* (regWord) = imm16 */             \
+        I08_TO_xRW(TP);                                                                             \
+                        CPUs->IH = Z80_RB (CPUs->PC++);                                             \
+                                   Z80_WR (CPUs->AP,                                                \
+                                           CPUs->IH                                                 \
+                                )                          
+#define xRW_TO_RB(x, y) CPUs->AP =         CPUs->x;             /* regByte = (regWord) */           \
+                        CPUs->y  = Z80_RB (CPUs->AP++)  
+#define xRW_TO_RW(x, y)                                         /* regWord = (regWord) */           \
+        xRW_TO_RB(x,IL);                                                                            \
+                        CPUs->IH = Z80_RB (CPUs->AP);                                               \
+                        CPUs->y  =         CPUs->IP
+#define RB_TO_xRW(x, y) CPUs->AP =         CPUs->x;             /* (regWord) = regByte */           \
+                                   Z80_WR (CPUs->AP++, CPUs->y )                                   
+#define RW_TO_xRW(x, y) CPUs->TP =         CPUs->y;             /* (regWord) = regWord */           \
+        RB_TO_xRW(x,TL);                                                                            \
+                                   Z80_WR (CPUs->AP  , CPUs->TH)                                                       
+#define RB_TO_RB(x, y)  CPUs->x  =         CPUs->y              /* regByte = regByte */
+#define RW_TO_RW(x, y)  CPUs->x  =         CPUs->y              /* regWord = regWord */ 
+/*\ --------------------------------- Mem/Reg Arith Opr ----------------------------------------- \*/
+#define RW_INC(x)                         (CPUs->x ++)          /* regWord ++ */
+#define RW_DEC(x)                         (CPUs->x --)          /* regWord -- */ 
+#define RB_INC(x)       CPUs->TL =        (CPUs->x ++);         /* regByte ++ */                    \
+                        CPUs->F  =        (CPUs->F & C_FLAG)                                        \
+                                 |       ((CPUs->x & H_MASK) ? 0 : H_FLAG)                          \
+                                 |       ((CPUs->x & (~CPUs->TL) & V_MASK) >> 5) | ZST[CPUs->x]
+#define RB_DEC(x)       CPUs->TL =        (CPUs->x --);         /* regByte -- */                    \
+                        CPUs->F  =        (CPUs->F & C_FLAG)                                        \
+                                 |                   N_FLAG                                         \
+                                 |      (((CPUs->x & H_MASK)== H_MASK) ? H_FLAG : 0)                \
+                                 |      (((CPUs->TL& V_MASK & (CPUs->x ^ CPUs->TL))) >> 5)          \
+                                                                                 | ZST[CPUs->x]
+#define xI16_INC        CPUs->AL = Z80_RB (CPUs->PC++);         /* (imm16) ++ */                    \
+                        CPUs->AH = Z80_RB (CPUs->PC++);                                             \
+                        CPUs->IL = Z80_RB (CPUs->AP);                                               \
+        RB_INC (IL);                                                                                \
+                                   Z80_WR (CPUs->AP,                                                \
+                                           CPUs->IL                                                 \
+                                   )
+#define xI16_DEC        CPUs->AL = Z80_RB (CPUs->PC++);         /* (imm16) -- */                    \
+                        CPUs->AH = Z80_RB (CPUs->PC++);                                             \
+                        CPUs->IL = Z80_RB (CPUs->AP);                                               \
+        RB_DEC (IL);                                                                                \
+                                   Z80_WR (CPUs->AP,                                                \
+                                           CPUs->IL                                                 \
+                                   )
+#define xRW_INC(x)      CPUs->IL = Z80_RB (CPUs->x);            /* (regWord) ++ */                  \
+         RB_INC(IL);                                                                                \
+                                   Z80_WR (CPUs->x,                                                 \
+                                           CPUs->IL                                                 \
+                                   )
+#define xRW_DEC(x)      CPUs->IL = Z80_RB (CPUs->x);            /* (regWord) -- */                  \
+         RB_DEC(IL);                                                                                \
+                                   Z80_WR (CPUs->x,                                                 \
+                                           CPUs->IL                                                 \
+                                   )
+#define ACC_ADD(x)      CPUs->IP =       (uint16_t) x;          /* A += imm08/regByte */            \
+                        CPUs->TP =         CPUs->IP +                                               \
+                                 (uint16_t)CPUs->A;                                                 \
+                        CPUs->F  =    (((~(CPUs->A ^     CPUs->IL))                                 \
+                                 &        (CPUs->TL^     CPUs->IL) & V_MASK) >> 5)                  \
+                                 |       ((CPUs->A ^     CPUs->IL  ^ CPUs->TL) & H_FLAG)            \
+                                 |        (CPUs->TH    & C_FLAG)   | ZST[CPUs->TL];                 \
+                        CPUs->A  =         CPUs->TL         
+#define ACC_ADC(x)                                              /* A += imm08/regByte + C_Flag */   \
+        ACC_ADD(((x) + (CPUs->F & C_FLAG)))                     
+#define RW_ADD_RW(x, y) CPUs->LPD=             (uint32_t)CPUs->x;/* RegWord += RegWord + C_Flag */  \
+                                 +             (uint32_t)CPUs->y;                                   \
+                        CPUs->F &=                (~(N_FLAG                                         \
+                                                   | H_FLAG                                         \
+                                                   | C_FLAG)                                        \
+                                                  );                                                \
+                        CPUs->F  =       ((CPUs->x ^     CPUs->y ^ CPUs->LPW0) & 0x1000 ? H_FLAG : 0)\
+                                 |       (           C_FLAG      & CPUs->LPB2);                     \
+                        CPUs->x  =                                 CPUs->LPW0                                           
+#define ACC_SUB(x)      CPUs->IP =       (uint16_t) x           /* A -= imm08/regByte */            \
+                        CPUs->TP =       - CPUs->IP +                                               \
+                                 (uint16_t)CPUs->A;                                                 \
+                        CPUs->F  =     ((((CPUs->A ^ CPUs->IL))                                     \
+                                 &        (CPUs->A ^ CPUs->TL) & V_MASK) >> 5)                      \
+                                 |       ((CPUs->A ^ CPUs->TL) & H_FLAG   & CPUs->IL)               \
+                                 |                ((~CPUs->TH) & C_FLAG)       | ZST[CPUs->TL];     \
+                        CPUs->A  =                   CPUs->TL
+#define ACC_SBC(x)                                              /* A -= imm08/regByte + C_Flag */   \
+        ACC_SUB(((x) + (CPUs->F & C_FLAG)))                 
+/*\ --------------------------------- Mem/Reg Shift Opr ----------------------------------------- \*/
+#define ACC_XROL        CPUs->F &=                (~(N_FLAG     /* same as X86's ROL */             \
+                                                   | H_FLAG                                         \
+                                                   | C_FLAG)                                        \
+                                                  );                                                \
+                        CPUs->TL =        (CPUs->A>>7);                                             \
+                        CPUs->A<<= 1;                                                               \
+                        CPUs->A |=         CPUs->TL;                                                \
+                        CPUs->F |=         CPUs->TL
+#define ACC_XROR        CPUs->F &=                (~(N_FLAG      /* same as X86's ROR */            \
+                                                   | H_FLAG                                         \
+                                                   | C_FLAG)                                        \
+                                                  );                                                \
+                        CPUs->TL =        (CPUs->A &1);                                             \
+                        CPUs->A>>= 1;                                                               \
+                        CPUs->A |=        (CPUs->TL<<7);                                            \
+                        CPUs->F |=         CPUs->TL
+#define ACC_MROL        CPUs->TH =        (CPUs->F &1);         /* save as MOS6502's ROL */         \
+                        CPUs->F &=                (~(N_FLAG                                         \
+                                                   | H_FLAG                                         \
+                                                   | C_FLAG)                                        \
+                                                  );                                                \
+                        CPUs->TL =         CPUs->A>>7;                                              \
+                        CPUs->A<<= 1;                                                               \
+                        CPUs->A |=         CPUs->TH;                                                \
+                        CPUs->F |=         CPUs->TL 
+    
+#define ACC_MROR        CPUs->TH =         CPUs->F<<7;          /* save as MOS6502's ROR */         \
+                        CPUs->F &=                (~(N_FLAG                                         \
+                                                   | H_FLAG                                         \
+                                                   | C_FLAG)                                        \
+                                                  );                                                \
+                        CPUs->TL =         CPUs->A &1;                                              \
+                        CPUs->A>>= 1;                                                               \
+                        CPUs->A |=         CPUs->TH;                                                \
+                        CPUs->F |=         CPUs->TL
+/*\ --------------------------------- Mem/Reg Logic Opr ----------------------------------------- \*/
+#define ACC_AND(x)      CPUs->A &= (x);                         /* A &= imm08/regByte */            \
+                        CPUs->F  = PZST[   CPUs->A ]                                                \
+                                                   | H_FLAG     
+#define ACC_OR(x)       CPUs->A |= (x);                         /* A |= imm08/regByte */            \
+                        CPUs->F  = PZST[   CPUs->A ]                            
+#define ACC_XOR(x)      CPUs->A ^= (x);                         /* A ^= imm08/regByte */            \
+                        CPUs->F  = PZST[   CPUs->A ]    
+#define ACC_CMP(x)      CPUs->NL =         CPUs->A;             /* A !? imm08/regByte */            \
+        ACC_SUB(x);                                                                                 \
+                        CPUs->A  =         CPUs->NL
+/*\ --------------------------------- Mem/Reg Stack Opr ----------------------------------------- \*/
+#define MM_PULLB(x)     CPUs->x  = Z80_RB (CPUs->SP++)          /* regByte = (Stack++) */           \
+#define MM_PULLW(x)                                             /* regWord = (Stack++)[Word] */     \
+        MM_PULLB(TL);                                                                               \
+        MM_PULLB(TH);                                                                               \
+                        CPUs->x  =         CPUs->TP                     
+#define MM_PUSHB(x)                Z80_WR (CPUs->SP-1, CPUs->x);/* regByte = (--Stack) */           \
+                        CPUs->SP-= 1
+#define MM_PUSHW(x)     CPUs->TP =         CPUs->x;             /* regWord = (--Stack)[Word] */     \
+        MM_PUSHB(TH);                                                                               \
+        MM_PUSHB(TL)
+/*\ --------------------------- factory Opr [JCC/PROC...etc] ------------------------------------ \*/
+#define Z80_JR          CPUs->PC+= 1;                           /* short jmp */                     \
+                        CPUs->PC+=                                                                  \
+                        (sint16_t) Z80_RB (CPUs->PC)                    
+#define Z80_JRF(x)  if (x) {                                    /* JCC (short) */                   \
+                        Z80_JR;                                                                     \
+    BURNING_CYCLE(5); /* --- hit + 5 cycles --- */                                                  \
+            } else {                                                                                \
+                        CPUs->PC+= 1;                                                               \
+            }           
+#define Z80_JP          CPUs->AL = Z80_RB (CPUs->PC++);         /* far jmp */                       \
+                        CPUs->AH = Z80_RB (CPUs->PC);                                               \
+                        CPUs->PC =         CPUs->AP                             
+#define Z80_JPF     if (x) {                                    /* JCC (far) */                     \
+                        Z80_JP;                                                                     \
+            } else {                                                                                \
+                        CPUs->PC+= 2;                                                               \
+            }
+#define Z80_CALL        CPUs->AL = Z80_RB (CPUs->PC++);         /* proc use */                      \
+                        CPUs->AH = Z80_RB (CPUs->PC++);                                             \
+        MM_PUSHW (PC);                                                                              \
+                        CPUs->PC =         CPUs->AP         
+#define Z80_CALLF(x)if (x) {                                    /* CCC */                           \
+                        Z80_CALL;                                                                   \
+    BURNING_CYCLE(7); /* --- hit + 7 cycles --- */                                                  \
+            } else {                                                                                \
+                        CPUs->PC+= 2;                                                               \
+            }
+#define Z80_RET                                                 /* proc ret */                      \
+        MM_PULLW (PC)   
+#define Z80_RETF(x) if (x) {                                    /* RCC */                           \
+                        Z80_RET;                                                                    \
+    BURNING_CYCLE(6); /* --- hit + 6 cycles --- */                                                  \
+            } 
+#define RST_NN(x)                                               /* push PC, =x */                   \
+        MM_PUSHW(PC);   CPUs->PC = x
+        
+#define Z80_JR_DB                  Z80_JRF          (--CPUs->B)
+#define Z80_JR_Z                   Z80_JRF          ( (CPUs->F & Z_FLAG))
+#define Z80_JR_NZ                  Z80_JRF          (!(CPUs->F & Z_FLAG))   
+#define Z80_JR_C                   Z80_JRF          ( (CPUs->F & C_FLAG))
+#define Z80_JR_NC                  Z80_JRF          (!(CPUs->F & C_FLAG))       
+#define Z80_JR_PE                  Z80_JRF          ( (CPUs->F & P_FLAG))
+#define Z80_JR_PO                  Z80_JRF          (!(CPUs->F & P_FLAG))           
+#define Z80_JR_M                   Z80_JRF          ( (CPUs->F & S_FLAG))
+#define Z80_JR_P                   Z80_JRF          (!(CPUs->F & S_FLAG))   
+#define Z80_JP_Z                   Z80_JPF          ( (CPUs->F & Z_FLAG))
+#define Z80_JP_NZ                  Z80_JPF          (!(CPUs->F & Z_FLAG))   
+#define Z80_JP_C                   Z80_JPF          ( (CPUs->F & C_FLAG))
+#define Z80_JP_NC                  Z80_JPF          (!(CPUs->F & C_FLAG))   
+#define Z80_JP_PE                  Z80_JPF          ( (CPUs->F & P_FLAG))
+#define Z80_JP_PO                  Z80_JPF          (!(CPUs->F & P_FLAG))   
+#define Z80_JP_M                   Z80_JPF          ( (CPUs->F & S_FLAG))
+#define Z80_JP_P                   Z80_JPF          (!(CPUs->F & S_FLAG))   
+#define Z80_CALL_Z                 Z80_CALLF        ( (CPUs->F & Z_FLAG))
+#define Z80_CALL_NZ                Z80_CALLF        (!(CPUs->F & Z_FLAG))   
+#define Z80_CALL_C                 Z80_CALLF        ( (CPUs->F & C_FLAG))
+#define Z80_CALL_NC                Z80_CALLF        (!(CPUs->F & C_FLAG))   
+#define Z80_CALL_PE                Z80_CALLF        ( (CPUs->F & P_FLAG))
+#define Z80_CALL_PO                Z80_CALLF        (!(CPUs->F & P_FLAG))   
+#define Z80_CALL_M                 Z80_CALLF        ( (CPUs->F & S_FLAG))
+#define Z80_CALL_P                 Z80_CALLF        (!(CPUs->F & S_FLAG))
+#define Z80_RET_Z                  Z80_RETF         ( (CPUs->F & Z_FLAG))
+#define Z80_RET_NZ                 Z80_RETF         (!(CPUs->F & Z_FLAG))   
+#define Z80_RET_C                  Z80_RETF         ( (CPUs->F & C_FLAG))
+#define Z80_RET_NC                 Z80_RETF         (!(CPUs->F & C_FLAG))   
+#define Z80_RET_PE                 Z80_RETF         ( (CPUs->F & P_FLAG))
+#define Z80_RET_PO                 Z80_RETF         (!(CPUs->F & P_FLAG))   
+#define Z80_RET_M                  Z80_RETF         ( (CPUs->F & S_FLAG))
+#define Z80_RET_P                  Z80_RETF         (!(CPUs->F & S_FLAG))
+#define Z80_RST_00H                RST_NN(0x00)
+#define Z80_RST_08H                RST_NN(0x08) 
+#define Z80_RST_10H                RST_NN(0x10)
+#define Z80_RST_18H                RST_NN(0x18)
+#define Z80_RST_20H                RST_NN(0x20)
+#define Z80_RST_28H                RST_NN(0x28) 
+#define Z80_RST_30H                RST_NN(0x30)
+#define Z80_RST_38H                RST_NN(0x38)
+/*\ ------------------------------------- MISC Opr ---------------------------------------------- \*/
+/*\ ---> swap(~)reg/mem <--- \*/     
+#define EX_TO_RB(x, y)  CPUs->TL =         CPUs->x;                                                 \
+                        CPUs->x  =         CPUs->y;                                                 \
+                        CPUs->y  =         CPUs->TL                     
+#define EX_TO_RW(x, y)  CPUs->TP =         CPUs->x;                                                 \
+                        CPUs->x  =         CPUs->y;                                                 \
+                        CPUs->y  =         CPUs->TP
+#define EX_CACHE(x)                                                                                 \
+        EX_TO_RW(x, x##_Cache)                      
+#define Z80_EXX                                                                                         \
+        EX_CACHE(BC);                                                                               \
+        EX_CACHE(DE);                                                                               \
+        EX_CACHE(HL)
+#define MMWB_RB_EX(x, y)CPUs->TL = Z80_RB (CPUs->x);                                                \
+                        CPUs->TH =         CPUs->y;                                                 \
+                        CPUs->y  =         CPUs->TL;                                                \
+                                   Z80_WR (CPUs->x , CPUs->TH)                             
+#define MMWW_RW_EX(x, y)CPUs->TL = Z80_RB (CPUs->x++);                                              \
+                        CPUs->TH = Z80_RB (CPUs->x--);                                              \
+                        CPUs->AP =         CPUs->y;                                                 \
+                                   Z80_WR (CPUs->x++,CPUs->AL);                                     \
+                                   Z80_WR (CPUs->x--,CPUs->AH);                                     \
+                        CPUs->y  =         CPUs->TP 
+#define ACC_INVR        CPUs->A  =       ~ CPUs->A;                 /* invert A */                  \
+                        CPUs->F |=                ( (N_FLAG                                         \
+                                                   | H_FLAG                                         \
+                                                  ) 
+#define Z80_SCF                            CPUs->F|=  C_FLAG;       /* set C Flag */                \
+                                           CPUs->F&=~(N_FLAG | H_FLAG)                                                 
+#define Z80_CCF                            CPUs->F^=  C_FLAG;       /* invert C Flag */             \
+                                           CPUs->F&=~(N_FLAG | H_FLAG);                             \
+                                           CPUs->F|=(                                               \
+                                           CPUs->F &  C_FLAG)                                       \
+                                                   ?  0                                             \
+                                                   :  H_FLAG                            
+#define BCD_ADJUST                   if   (CPUs->F &  C_FLAG)CPUs->TH = 0x100; /* BCD hack */       \
+                                     if   (CPUs->F &  H_FLAG)CPUs->TH|= 0x200;                      \
+                                     if   (CPUs->F &  N_FLAG)CPUs->TH|= 0x400;                      \
+                                                             CPUs->TL = CPUs->A;                    \
+                                           CPUs->AF= DAAT[   CPUs->TP]  
+#define EB(x)           CPUs->##x       
+#define MB(x)                      Z80_RB (EB(HL)) 
+#define WB(x)                      Z80_RB (CPUs->x)
+#define IB(x)                      Z80_RB (CPUs->x++)
 
-case CALL_NZ: if(R->AF.B.l&Z_FLAG) R->PC.W+=2; else { R->ICount-=7;M_CALL; } break;
-case CALL_NC: if(R->AF.B.l&C_FLAG) R->PC.W+=2; else { R->ICount-=7;M_CALL; } break;
-case CALL_PO: if(R->AF.B.l&P_FLAG) R->PC.W+=2; else { R->ICount-=7;M_CALL; } break;
-case CALL_P:  if(R->AF.B.l&S_FLAG) R->PC.W+=2; else { R->ICount-=7;M_CALL; } break;
-case CALL_Z:  if(R->AF.B.l&Z_FLAG) { R->ICount-=7;M_CALL; } else R->PC.W+=2; break;
-case CALL_C:  if(R->AF.B.l&C_FLAG) { R->ICount-=7;M_CALL; } else R->PC.W+=2; break;
-case CALL_PE: if(R->AF.B.l&P_FLAG) { R->ICount-=7;M_CALL; } else R->PC.W+=2; break;
-case CALL_M:  if(R->AF.B.l&S_FLAG) { R->ICount-=7;M_CALL; } else R->PC.W+=2; break;
+#define BURNING_CYCLE(x)CPUs->IL             = x;                                                   \
+                        CPUs->Remain_Cycles -= CPUs->IL;                                            \
+                        CPUs->Elapse_Cycles += CPUs->IL
 
-case ADD_B:    M_ADD(R->BC.B.h);break;
-case ADD_C:    M_ADD(R->BC.B.l);break;
-case ADD_D:    M_ADD(R->DE.B.h);break;
-case ADD_E:    M_ADD(R->DE.B.l);break;
-case ADD_H:    M_ADD(R->HL.B.h);break;
-case ADD_L:    M_ADD(R->HL.B.l);break;
-case ADD_A:    M_ADD(R->AF.B.h);break;
-case ADD_xHL:  I=RdZ80(R->HL.W);M_ADD(I);break;
-case ADD_BYTE: I=OpZ80(R->PC.W++);M_ADD(I);break;
-
-case SUB_B:    M_SUB(R->BC.B.h);break;
-case SUB_C:    M_SUB(R->BC.B.l);break;
-case SUB_D:    M_SUB(R->DE.B.h);break;
-case SUB_E:    M_SUB(R->DE.B.l);break;
-case SUB_H:    M_SUB(R->HL.B.h);break;
-case SUB_L:    M_SUB(R->HL.B.l);break;
-case SUB_A:    R->AF.B.h=0;R->AF.B.l=N_FLAG|Z_FLAG;break;
-case SUB_xHL:  I=RdZ80(R->HL.W);M_SUB(I);break;
-case SUB_BYTE: I=OpZ80(R->PC.W++);M_SUB(I);break;
-
-case AND_B:    M_AND(R->BC.B.h);break;
-case AND_C:    M_AND(R->BC.B.l);break;
-case AND_D:    M_AND(R->DE.B.h);break;
-case AND_E:    M_AND(R->DE.B.l);break;
-case AND_H:    M_AND(R->HL.B.h);break;
-case AND_L:    M_AND(R->HL.B.l);break;
-case AND_A:    M_AND(R->AF.B.h);break;
-case AND_xHL:  I=RdZ80(R->HL.W);M_AND(I);break;
-case AND_BYTE: I=OpZ80(R->PC.W++);M_AND(I);break;
-
-case OR_B:     M_OR(R->BC.B.h);break;
-case OR_C:     M_OR(R->BC.B.l);break;
-case OR_D:     M_OR(R->DE.B.h);break;
-case OR_E:     M_OR(R->DE.B.l);break;
-case OR_H:     M_OR(R->HL.B.h);break;
-case OR_L:     M_OR(R->HL.B.l);break;
-case OR_A:     M_OR(R->AF.B.h);break;
-case OR_xHL:   I=RdZ80(R->HL.W);M_OR(I);break;
-case OR_BYTE:  I=OpZ80(R->PC.W++);M_OR(I);break;
-
-case ADC_B:    M_ADC(R->BC.B.h);break;
-case ADC_C:    M_ADC(R->BC.B.l);break;
-case ADC_D:    M_ADC(R->DE.B.h);break;
-case ADC_E:    M_ADC(R->DE.B.l);break;
-case ADC_H:    M_ADC(R->HL.B.h);break;
-case ADC_L:    M_ADC(R->HL.B.l);break;
-case ADC_A:    M_ADC(R->AF.B.h);break;
-case ADC_xHL:  I=RdZ80(R->HL.W);M_ADC(I);break;
-case ADC_BYTE: I=OpZ80(R->PC.W++);M_ADC(I);break;
-
-case SBC_B:    M_SBC(R->BC.B.h);break;
-case SBC_C:    M_SBC(R->BC.B.l);break;
-case SBC_D:    M_SBC(R->DE.B.h);break;
-case SBC_E:    M_SBC(R->DE.B.l);break;
-case SBC_H:    M_SBC(R->HL.B.h);break;
-case SBC_L:    M_SBC(R->HL.B.l);break;
-case SBC_A:    M_SBC(R->AF.B.h);break;
-case SBC_xHL:  I=RdZ80(R->HL.W);M_SBC(I);break;
-case SBC_BYTE: I=OpZ80(R->PC.W++);M_SBC(I);break;
-
-case XOR_B:    M_XOR(R->BC.B.h);break;
-case XOR_C:    M_XOR(R->BC.B.l);break;
-case XOR_D:    M_XOR(R->DE.B.h);break;
-case XOR_E:    M_XOR(R->DE.B.l);break;
-case XOR_H:    M_XOR(R->HL.B.h);break;
-case XOR_L:    M_XOR(R->HL.B.l);break;
-case XOR_A:    R->AF.B.h=0;R->AF.B.l=P_FLAG|Z_FLAG;break;
-case XOR_xHL:  I=RdZ80(R->HL.W);M_XOR(I);break;
-case XOR_BYTE: I=OpZ80(R->PC.W++);M_XOR(I);break;
-
-case CP_B:     M_CP(R->BC.B.h);break;
-case CP_C:     M_CP(R->BC.B.l);break;
-case CP_D:     M_CP(R->DE.B.h);break;
-case CP_E:     M_CP(R->DE.B.l);break;
-case CP_H:     M_CP(R->HL.B.h);break;
-case CP_L:     M_CP(R->HL.B.l);break;
-case CP_A:     R->AF.B.l=N_FLAG|Z_FLAG;break;
-case CP_xHL:   I=RdZ80(R->HL.W);M_CP(I);break;
-case CP_BYTE:  I=OpZ80(R->PC.W++);M_CP(I);break;
-               
-case LD_BC_WORD: M_LDWORD(BC);break;
-case LD_DE_WORD: M_LDWORD(DE);break;
-case LD_HL_WORD: M_LDWORD(HL);break;
-case LD_SP_WORD: M_LDWORD(SP);break;
-
-case LD_PC_HL: R->PC.W=R->HL.W;JumpZ80(R->PC.W);break;
-case LD_SP_HL: R->SP.W=R->HL.W;break;
-case LD_A_xBC: R->AF.B.h=RdZ80(R->BC.W);break;
-case LD_A_xDE: R->AF.B.h=RdZ80(R->DE.W);break;
-
-case ADD_HL_BC:  M_ADDW(HL,BC);break;
-case ADD_HL_DE:  M_ADDW(HL,DE);break;
-case ADD_HL_HL:  M_ADDW(HL,HL);break;
-case ADD_HL_SP:  M_ADDW(HL,SP);break;
-
-case DEC_BC:   R->BC.W--;break;
-case DEC_DE:   R->DE.W--;break;
-case DEC_HL:   R->HL.W--;break;
-case DEC_SP:   R->SP.W--;break;
-
-case INC_BC:   R->BC.W++;break;
-case INC_DE:   R->DE.W++;break;
-case INC_HL:   R->HL.W++;break;
-case INC_SP:   R->SP.W++;break;
-
-case DEC_B:    M_DEC(R->BC.B.h);break;
-case DEC_C:    M_DEC(R->BC.B.l);break;
-case DEC_D:    M_DEC(R->DE.B.h);break;
-case DEC_E:    M_DEC(R->DE.B.l);break;
-case DEC_H:    M_DEC(R->HL.B.h);break;
-case DEC_L:    M_DEC(R->HL.B.l);break;
-case DEC_A:    M_DEC(R->AF.B.h);break;
-case DEC_xHL:  I=RdZ80(R->HL.W);M_DEC(I);WrZ80(R->HL.W,I);break;
-
-case INC_B:    M_INC(R->BC.B.h);break;
-case INC_C:    M_INC(R->BC.B.l);break;
-case INC_D:    M_INC(R->DE.B.h);break;
-case INC_E:    M_INC(R->DE.B.l);break;
-case INC_H:    M_INC(R->HL.B.h);break;
-case INC_L:    M_INC(R->HL.B.l);break;
-case INC_A:    M_INC(R->AF.B.h);break;
-case INC_xHL:  I=RdZ80(R->HL.W);M_INC(I);WrZ80(R->HL.W,I);break;
-
-case RLCA:
-  I=R->AF.B.h&0x80? C_FLAG:0;
-  R->AF.B.h=(R->AF.B.h<<1)|I;
-  R->AF.B.l=(R->AF.B.l&~(C_FLAG|N_FLAG|H_FLAG))|I;
-  break;
-case RLA:
-  I=R->AF.B.h&0x80? C_FLAG:0;
-  R->AF.B.h=(R->AF.B.h<<1)|(R->AF.B.l&C_FLAG);
-  R->AF.B.l=(R->AF.B.l&~(C_FLAG|N_FLAG|H_FLAG))|I;
-  break;
-case RRCA:
-  I=R->AF.B.h&0x01;
-  R->AF.B.h=(R->AF.B.h>>1)|(I? 0x80:0);
-  R->AF.B.l=(R->AF.B.l&~(C_FLAG|N_FLAG|H_FLAG))|I; 
-  break;
-case RRA:
-  I=R->AF.B.h&0x01;
-  R->AF.B.h=(R->AF.B.h>>1)|(R->AF.B.l&C_FLAG? 0x80:0);
-  R->AF.B.l=(R->AF.B.l&~(C_FLAG|N_FLAG|H_FLAG))|I;
-  break;
-
-case RST00:    M_RST(0x0000);break;
-case RST08:    M_RST(0x0008);break;
-case RST10:    M_RST(0x0010);break;
-case RST18:    M_RST(0x0018);break;
-case RST20:    M_RST(0x0020);break;
-case RST28:    M_RST(0x0028);break;
-case RST30:    M_RST(0x0030);break;
-case RST38:    M_RST(0x0038);break;
-
-case PUSH_BC:  M_PUSH(BC);break;
-case PUSH_DE:  M_PUSH(DE);break;
-case PUSH_HL:  M_PUSH(HL);break;
-case PUSH_AF:  M_PUSH(AF);break;
-
-case POP_BC:   M_POP(BC);break;
-case POP_DE:   M_POP(DE);break;
-case POP_HL:   M_POP(HL);break;
-case POP_AF:   M_POP(AF);break;
-
-case DJNZ: if(--R->BC.B.h) { R->ICount-=5;M_JR; } else R->PC.W++;break;
-case JP:   M_JP;break;
-case JR:   M_JR;break;
-case CALL: M_CALL;break;
-case RET:  M_RET;break;
-case SCF:  S(C_FLAG);R(N_FLAG|H_FLAG);break;
-case CPL:  R->AF.B.h=~R->AF.B.h;S(N_FLAG|H_FLAG);break;
-case NOP:  break;
-case OUTA: I=OpZ80(R->PC.W++);OutZ80(I|(R->AF.W&0xFF00),R->AF.B.h);break;
-case INA:  I=OpZ80(R->PC.W++);R->AF.B.h=InZ80(I|(R->AF.W&0xFF00));break;
-
-case HALT:
-  R->PC.W--;
-  R->IFF|=IFF_HALT;
-  R->IBackup=0;
-  R->ICount=0;
-  break;
-
-case DI:
-  if(R->IFF&IFF_EI) R->ICount+=R->IBackup-1;
-  R->IFF&=~(IFF_1|IFF_2|IFF_EI);
-  break;
-
-case EI:
-  if(!(R->IFF&(IFF_1|IFF_EI)))
-  {
-    R->IFF|=IFF_2|IFF_EI;
-    R->IBackup=R->ICount;
-    R->ICount=1;
-  }
-  break;
-
-case CCF:
-  R->AF.B.l^=C_FLAG;R(N_FLAG|H_FLAG);
-  R->AF.B.l|=R->AF.B.l&C_FLAG? 0:H_FLAG;
-  break;
-
-case EXX:
-  J.W=R->BC.W;R->BC.W=R->BC1.W;R->BC1.W=J.W;
-  J.W=R->DE.W;R->DE.W=R->DE1.W;R->DE1.W=J.W;
-  J.W=R->HL.W;R->HL.W=R->HL1.W;R->HL1.W=J.W;
-  break;
-
-case EX_DE_HL: J.W=R->DE.W;R->DE.W=R->HL.W;R->HL.W=J.W;break;
-case EX_AF_AF: J.W=R->AF.W;R->AF.W=R->AF1.W;R->AF1.W=J.W;break;  
-  
-case LD_B_B:   R->BC.B.h=R->BC.B.h;break;
-case LD_C_B:   R->BC.B.l=R->BC.B.h;break;
-case LD_D_B:   R->DE.B.h=R->BC.B.h;break;
-case LD_E_B:   R->DE.B.l=R->BC.B.h;break;
-case LD_H_B:   R->HL.B.h=R->BC.B.h;break;
-case LD_L_B:   R->HL.B.l=R->BC.B.h;break;
-case LD_A_B:   R->AF.B.h=R->BC.B.h;break;
-case LD_xHL_B: WrZ80(R->HL.W,R->BC.B.h);break;
-
-case LD_B_C:   R->BC.B.h=R->BC.B.l;break;
-case LD_C_C:   R->BC.B.l=R->BC.B.l;break;
-case LD_D_C:   R->DE.B.h=R->BC.B.l;break;
-case LD_E_C:   R->DE.B.l=R->BC.B.l;break;
-case LD_H_C:   R->HL.B.h=R->BC.B.l;break;
-case LD_L_C:   R->HL.B.l=R->BC.B.l;break;
-case LD_A_C:   R->AF.B.h=R->BC.B.l;break;
-case LD_xHL_C: WrZ80(R->HL.W,R->BC.B.l);break;
-
-case LD_B_D:   R->BC.B.h=R->DE.B.h;break;
-case LD_C_D:   R->BC.B.l=R->DE.B.h;break;
-case LD_D_D:   R->DE.B.h=R->DE.B.h;break;
-case LD_E_D:   R->DE.B.l=R->DE.B.h;break;
-case LD_H_D:   R->HL.B.h=R->DE.B.h;break;
-case LD_L_D:   R->HL.B.l=R->DE.B.h;break;
-case LD_A_D:   R->AF.B.h=R->DE.B.h;break;
-case LD_xHL_D: WrZ80(R->HL.W,R->DE.B.h);break;
-
-case LD_B_E:   R->BC.B.h=R->DE.B.l;break;
-case LD_C_E:   R->BC.B.l=R->DE.B.l;break;
-case LD_D_E:   R->DE.B.h=R->DE.B.l;break;
-case LD_E_E:   R->DE.B.l=R->DE.B.l;break;
-case LD_H_E:   R->HL.B.h=R->DE.B.l;break;
-case LD_L_E:   R->HL.B.l=R->DE.B.l;break;
-case LD_A_E:   R->AF.B.h=R->DE.B.l;break;
-case LD_xHL_E: WrZ80(R->HL.W,R->DE.B.l);break;
-
-case LD_B_H:   R->BC.B.h=R->HL.B.h;break;
-case LD_C_H:   R->BC.B.l=R->HL.B.h;break;
-case LD_D_H:   R->DE.B.h=R->HL.B.h;break;
-case LD_E_H:   R->DE.B.l=R->HL.B.h;break;
-case LD_H_H:   R->HL.B.h=R->HL.B.h;break;
-case LD_L_H:   R->HL.B.l=R->HL.B.h;break;
-case LD_A_H:   R->AF.B.h=R->HL.B.h;break;
-case LD_xHL_H: WrZ80(R->HL.W,R->HL.B.h);break;
-
-case LD_B_L:   R->BC.B.h=R->HL.B.l;break;
-case LD_C_L:   R->BC.B.l=R->HL.B.l;break;
-case LD_D_L:   R->DE.B.h=R->HL.B.l;break;
-case LD_E_L:   R->DE.B.l=R->HL.B.l;break;
-case LD_H_L:   R->HL.B.h=R->HL.B.l;break;
-case LD_L_L:   R->HL.B.l=R->HL.B.l;break;
-case LD_A_L:   R->AF.B.h=R->HL.B.l;break;
-case LD_xHL_L: WrZ80(R->HL.W,R->HL.B.l);break;
-
-case LD_B_A:   R->BC.B.h=R->AF.B.h;break;
-case LD_C_A:   R->BC.B.l=R->AF.B.h;break;
-case LD_D_A:   R->DE.B.h=R->AF.B.h;break;
-case LD_E_A:   R->DE.B.l=R->AF.B.h;break;
-case LD_H_A:   R->HL.B.h=R->AF.B.h;break;
-case LD_L_A:   R->HL.B.l=R->AF.B.h;break;
-case LD_A_A:   R->AF.B.h=R->AF.B.h;break;
-case LD_xHL_A: WrZ80(R->HL.W,R->AF.B.h);break;
-
-case LD_xBC_A: WrZ80(R->BC.W,R->AF.B.h);break;
-case LD_xDE_A: WrZ80(R->DE.W,R->AF.B.h);break;
-
-case LD_B_xHL:    R->BC.B.h=RdZ80(R->HL.W);break;
-case LD_C_xHL:    R->BC.B.l=RdZ80(R->HL.W);break;
-case LD_D_xHL:    R->DE.B.h=RdZ80(R->HL.W);break;
-case LD_E_xHL:    R->DE.B.l=RdZ80(R->HL.W);break;
-case LD_H_xHL:    R->HL.B.h=RdZ80(R->HL.W);break;
-case LD_L_xHL:    R->HL.B.l=RdZ80(R->HL.W);break;
-case LD_A_xHL:    R->AF.B.h=RdZ80(R->HL.W);break;
-
-case LD_B_BYTE:   R->BC.B.h=OpZ80(R->PC.W++);break;
-case LD_C_BYTE:   R->BC.B.l=OpZ80(R->PC.W++);break;
-case LD_D_BYTE:   R->DE.B.h=OpZ80(R->PC.W++);break;
-case LD_E_BYTE:   R->DE.B.l=OpZ80(R->PC.W++);break;
-case LD_H_BYTE:   R->HL.B.h=OpZ80(R->PC.W++);break;
-case LD_L_BYTE:   R->HL.B.l=OpZ80(R->PC.W++);break;
-case LD_A_BYTE:   R->AF.B.h=OpZ80(R->PC.W++);break;
-case LD_xHL_BYTE: WrZ80(R->HL.W,OpZ80(R->PC.W++));break;
-
-case LD_xWORD_HL:
-  J.B.l=OpZ80(R->PC.W++);
-  J.B.h=OpZ80(R->PC.W++);
-  WrZ80(J.W++,R->HL.B.l);
-  WrZ80(J.W,R->HL.B.h);
-  break;
-
-case LD_HL_xWORD:
-  J.B.l=OpZ80(R->PC.W++);
-  J.B.h=OpZ80(R->PC.W++);
-  R->HL.B.l=RdZ80(J.W++);
-  R->HL.B.h=RdZ80(J.W);
-  break;
-
-case LD_A_xWORD:
-  J.B.l=OpZ80(R->PC.W++);
-  J.B.h=OpZ80(R->PC.W++); 
-  R->AF.B.h=RdZ80(J.W);
-  break;
-
-case LD_xWORD_A:
-  J.B.l=OpZ80(R->PC.W++);
-  J.B.h=OpZ80(R->PC.W++);
-  WrZ80(J.W,R->AF.B.h);
-  break;
-
-case EX_HL_xSP:
-  J.B.l=RdZ80(R->SP.W);WrZ80(R->SP.W++,R->HL.B.l);
-  J.B.h=RdZ80(R->SP.W);WrZ80(R->SP.W--,R->HL.B.h);
-  R->HL.W=J.W;
-  break;
-
-case DAA:
-  J.W=R->AF.B.h;
-  if(R->AF.B.l&C_FLAG) J.W|=256;
-  if(R->AF.B.l&H_FLAG) J.W|=512;
-  if(R->AF.B.l&N_FLAG) J.W|=1024;
-  R->AF.W=DAATable[J.W];
-  break;
-
-default:
-  if(R->TrapBadOps)
-    printf
-    (
-      "[Z80 %lX] Unrecognized instruction: %02X at PC=%04X\n",
-      (long)R->User,OpZ80(R->PC.W-1),R->PC.W-1
-    );
-  break;
+#define ASK_NWPC(x)    (CPUs->PC+= (x))     
+#define CLR_FLAG(x)    (CPUs->F &= (x))
+#define SET_FLAG(x)    (CPUs->F |= (x))
+#define NEG_FLAG(x)    (CPUs->F ^= (x))
+#define TST_FLAG(x)    (CPUs->F  & (x))
